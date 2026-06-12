@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HW Track - บันทึกการบ้าน</title>
+    <style>
+        /* ================= CSS Styles & Animations ================= */
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Prompt', sans-serif;
+            transition: all 0.3s ease; /* อนิเมชั่นพื้นฐานสำหรับการเปลี่ยนแปลงทั้งหมด */
+        }
+
+        body {
+            background-color: #f0f4f8;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        /* 1. หน้า Intro เริ่มต้น */
+        #intro-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(45deg, #001f3f, #0074D9, #001f3f, #00509e);
+            background-size: 400% 400%;
+            animation: gradientBG 6s ease infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            z-index: 1000;
+            text-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #intro-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(1.1);
+        }
+
+        /* 2. หน้าหลัก (Main Screen) */
+        #main-screen {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+            display: none;
+        }
+
+        #main-screen.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+            animation: slideUpFade 0.6s ease forwards;
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* กล่องแสดงงานค้าง */
+        .pending-box {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            border: 2px solid #0074D9;
+        }
+
+        .pending-box h2 { color: #001f3f; font-size: 1.5rem; }
+        .pending-box .count { font-size: 3rem; color: #0074D9; font-weight: 600; }
+
+        /* แถบปุ่ม 2 ฝั่ง */
+        .action-bar {
+            display: flex;
+            background: white;
+            border-radius: 100px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 15px 0;
+            border: none;
+            background: transparent;
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #555;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .action-btn:first-child { border-right: 1px solid #eee; }
+        .action-btn:hover { background: #e6f2ff; color: #0074D9; transform: scale(1.02); }
+        .action-btn:active { transform: scale(0.98); }
+
+        /* กล่องงานด่วน */
+        .urgent-section-title { margin-bottom: 15px; color: #001f3f; font-size: 1.3rem; }
+        
+        .urgent-card {
+            background: white;
+            border-radius: 16px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            border-left: 5px solid #FF4136;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+        }
+
+        /* เพิ่ม delay ให้อนิเมชั่นงานด่วนไล่ลำดับกัน */
+        .urgent-card:nth-child(1) { animation-delay: 0.1s; }
+        .urgent-card:nth-child(2) { animation-delay: 0.2s; }
+        .urgent-card:nth-child(3) { animation-delay: 0.3s; }
+
+        .urgent-card h3 { color: #333; margin-bottom: 5px; }
+        .urgent-card p { color: #666; font-size: 0.95rem; margin-bottom: 3px; }
+        .urgent-card .due-date { color: #FF4136; font-weight: 600; }
+
+        /* 3. ระบบ Popups (Modals) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; z-index: 2000;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%; max-width: 500px;
+            transform: scale(0.8);
+            opacity: 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1); opacity: 1;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* ฟอร์มเพิ่มงาน */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #333; font-weight: 500; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px 15px;
+            border: 1px solid #ddd; border-radius: 10px;
+            font-size: 1rem; outline: none;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: #0074D9; box-shadow: 0 0 0 3px rgba(0,116,217,0.1); }
+        
+        .btn-save {
+            width: 100%; padding: 12px; background: #0074D9; color: white;
+            border: none; border-radius: 10px; font-size: 1.1rem;
+            font-weight: 600; cursor: pointer; margin-top: 10px;
+        }
+        .btn-save:hover { background: #00509e; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,116,217,0.3); }
+        .btn-save:active { transform: translateY(0); }
+
+        /* ตารางเช็คงาน (Cards) */
+        .check-task-card {
+            background: #f9f9f9;
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #eee;
+        }
+
+        .task-details { flex: 1; }
+        .task-details h4 { color: #001f3f; margin-bottom: 5px; font-size: 1.1rem; }
+        .task-details p { font-size: 0.9rem; color: #555; line-height: 1.4; }
+
+        .check-btn {
+            background: white; border: 2px solid #ccc;
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.2rem; color: #ccc; cursor: pointer;
+            margin-left: 15px;
+        }
+
+        .check-btn:hover { border-color: #0074D9; color: #0074D9; transform: scale(1.1); }
+        .check-btn.done { border-color: #2ECC40; color: #2ECC40; background: #eaffea; pointer-events: none; }
+
+        /* ไม่มีงาน */
+        .empty-state { text-align: center; color: #888; padding: 20px 0; font-style: italic; }
+
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+        <span style="animation: pulseText 2s infinite;">Click anywhere to start</span>
+    </div>
+    <style>@keyframes pulseText { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }</style>
+
+    <div id="main-screen">
+        <div class="pending-box">
+            <h2>งานค้างคงเหลือ</h2>
+            <div class="count" id="pending-count">0</div>
+        </div>
+
+        <div class="action-bar">
+            <button class="action-btn" id="btn-add">เพิ่มงาน</button>
+            <button class="action-btn" id="btn-check">เช็คงาน</button>
+        </div>
+
+        <h2 class="urgent-section-title">🔥 ต้องส่งด่วนที่สุด</h2>
+        <div id="urgent-container">
+            <div class="empty-state">กำลังโหลดข้อมูล...</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-add">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px; color: #001f3f;">📝 เพิ่มการบ้านใหม่</h2>
+            <div class="form-group">
+                <label>ชื่อวิชา</label>
+                <input type="text" id="input-subject" placeholder="เช่น คณิตศาสตร์">
+            </div>
+            <div class="form-group">
+                <label>ชื่องาน</label>
+                <input type="text" id="input-taskname" placeholder="เช่น แบบฝึกหัดบทที่ 1">
+            </div>
+            <div class="form-group">
+                <label>ประเภทงาน</label>
+                <select id="input-type">
+                    <option value="งานเดี่ยว">งานเดี่ยว</option>
+                    <option value="งานคู่">งานคู่</option>
+                    <option value="งานกลุ่ม">งานกลุ่ม</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>วันที่สั่ง</label>
+                <input type="date" id="input-assigned">
+            </div>
+            <div class="form-group">
+                <label>กำหนดส่ง</label>
+                <input type="date" id="input-due">
+            </div>
+            <button class="btn-save" id="btn-save">บันทึก</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-check">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px; color: #001f3f;">✅ เช็คงานที่สั่ง</h2>
+            <div id="all-tasks-container">
+                <div class="empty-state">ยังไม่มีรายการงาน</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // นำเข้า Firebase Modules v9
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // Config ของ Firebase ที่ให้มา
+        const firebaseConfig = {
+            apiKey: "AIzaSyC04prk9xWFdJ-HpiWatBm6B4yNire62S0",
+            authDomain: "hwtrack.firebaseapp.com",
+            databaseURL: "https://hwtrack-default-rtdb.firebaseio.com/", // เพิ่ม Database URL ตามที่ระบุ
+            projectId: "hwtrack",
+            storageBucket: "hwtrack.firebasestorage.app",
+            messagingSenderId: "466589833589",
+            appId: "1:466589833589:web:3cf62440da5e11e0ea9b3c",
+            measurementId: "G-M1RM4GMYG4"
+        };
+
+        // เริ่มต้นใช้งาน Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const tasksRef = ref(db, 'tasks');
+
+        // การอ้างอิง Elements ในหน้าจอ
+        const introScreen = document.getElementById('intro-screen');
+        const mainScreen = document.getElementById('main-screen');
+        const modalAdd = document.getElementById('modal-add');
+        const modalCheck = document.getElementById('modal-check');
+        
+        // 1. ระบบเปลี่ยนหน้า (Intro -> Main)
+        introScreen.addEventListener('click', () => {
+            introScreen.classList.add('hidden');
+            setTimeout(() => {
+                introScreen.style.display = 'none';
+                mainScreen.classList.add('visible');
+            }, 500); // รอให้อนิเมชั่นจบค่อยซ่อน
+        });
+
+        // 2. ระบบเปิด-ปิด Popup
+        document.getElementById('btn-add').addEventListener('click', () => {
+            modalAdd.classList.add('active');
+        });
+        
+        document.getElementById('btn-check').addEventListener('click', () => {
+            modalCheck.classList.add('active');
+        });
+
+        // ปิด Popup เมื่อคลิกที่พื้นที่ว่างรอบนอก (Overlay)
+        window.addEventListener('click', (e) => {
+            if (e.target === modalAdd) modalAdd.classList.remove('active');
+            if (e.target === modalCheck) modalCheck.classList.remove('active');
+        });
+
+        // 3. ระบบบันทึกงานใหม่
+        document.getElementById('btn-save').addEventListener('click', () => {
+            const subject = document.getElementById('input-subject').value;
+            const taskName = document.getElementById('input-taskname').value;
+            const type = document.getElementById('input-type').value;
+            const assigned = document.getElementById('input-assigned').value;
+            const due = document.getElementById('input-due').value;
+
+            // ตรวจสอบว่ากรอกข้อมูลครบหรือไม่
+            if (!subject || !taskName || !assigned || !due) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วนครับ!');
+                return;
+            }
+
+            // บันทึกลง Realtime Database
+            push(tasksRef, {
+                subject: subject,
+                taskName: taskName,
+                type: type,
+                assignedDate: assigned,
+                dueDate: due,
+                isDone: false // ค่าเริ่มต้นคือยังไม่เสร็จ
+            }).then(() => {
+                // ล้างค่าฟอร์มและปิดหน้าต่าง
+                document.getElementById('input-subject').value = '';
+                document.getElementById('input-taskname').value = '';
+                document.getElementById('input-assigned').value = '';
+                document.getElementById('input-due').value = '';
+                modalAdd.classList.remove('active');
+            });
+        });
+
+        // 4. ดึงข้อมูลแบบ Realtime มาแสดงผล
+        onValue(tasksRef, (snapshot) => {
+            const data = snapshot.val();
+            let allTasks = [];
+            
+            if (data) {
+                // แปลงข้อมูลจาก Object เป็น Array
+                for (let key in data) {
+                    allTasks.push({ id: key, ...data[key] });
+                }
+            }
+
+            // --- ส่วนที่ 1: จัดการตัวเลขงานค้าง ---
+            const pendingTasks = allTasks.filter(task => task.isDone === false);
+            document.getElementById('pending-count').innerText = pendingTasks.length;
+
+            // --- ส่วนที่ 2: งานด่วน 3 อันดับแรก (เฉพาะงานที่ยังไม่เสร็จ) ---
+            // เรียงลำดับจากวันที่ส่งใกล้ที่สุด
+            const sortedPending = [...pendingTasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const top3Urgent = sortedPending.slice(0, 3);
+            
+            const urgentContainer = document.getElementById('urgent-container');
+            urgentContainer.innerHTML = ''; // ล้างค่าเก่า
+
+            if (top3Urgent.length === 0) {
+                urgentContainer.innerHTML = '<div class="empty-state">🎉 ไม่มีงานค้างเลย เก่งมากครับ!</div>';
+            } else {
+                top3Urgent.forEach(task => {
+                    urgentContainer.innerHTML += `
+                        <div class="urgent-card">
+                            <h3>${task.subject} - ${task.taskName}</h3>
+                            <p><strong>ประเภท:</strong> ${task.type}</p>
+                            <p><strong>วันที่สั่ง:</strong> ${formatDate(task.assignedDate)}</p>
+                            <p><strong>กำหนดส่ง:</strong> <span class="due-date">${formatDate(task.dueDate)}</span></p>
+                        </div>
+                    `;
+                });
+            }
+
+            // --- ส่วนที่ 3: อัปเดตรายการในหน้าเช็คงาน (ตารางขอบมน) ---
+            const allTasksContainer = document.getElementById('all-tasks-container');
+            allTasksContainer.innerHTML = ''; // ล้างค่าเก่า
+            
+            if (allTasks.length === 0) {
+                allTasksContainer.innerHTML = '<div class="empty-state">ยังไม่มีรายการงาน</div>';
+            } else {
+                // เรียงลำดับให้งานที่ยังไม่เสร็จขึ้นก่อน เพื่อให้หาง่าย
+                allTasks.sort((a, b) => (a.isDone === b.isDone)? 0 : a.isDone ? 1 : -1);
+
+                allTasks.forEach(task => {
+                    // กำหนดคลาสและไอคอนสำหรับปุ่มเช็ค (ถ้าเสร็จแล้วให้เป็นสีเขียว ติ๊กถูก)
+                    const isDoneClass = task.isDone ? 'done' : '';
+                    
+                    // สร้างการ์ดงาน
+                    const card = document.createElement('div');
+                    card.className = 'check-task-card';
+                    card.innerHTML = `
+                        <div class="task-details">
+                            <h4>${task.subject}</h4>
+                            <p><strong>ชื่องาน:</strong> ${task.taskName}</p>
+                            <p><strong>ประเภท:</strong> ${task.type}</p>
+                            <p><strong>วันที่สั่ง:</strong> ${formatDate(task.assignedDate)}</p>
+                            <p><strong>กำหนดส่ง:</strong> ${formatDate(task.dueDate)}</p>
+                        </div>
+                        <div class="check-btn ${isDoneClass}" data-id="${task.id}" data-done="${task.isDone}">
+                            ✔
+                        </div>
+                    `;
+                    allTasksContainer.appendChild(card);
+                });
+
+                // เพิ่ม Event กดติ๊กถูกเพื่อเช็คงาน
+                document.querySelectorAll('.check-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const taskId = this.getAttribute('data-id');
+                        const isAlreadyDone = this.getAttribute('data-done') === 'true';
+
+                        if (!isAlreadyDone) {
+                            if (confirm('งานนี้เสร็จแล้วหรือไม่ ?')) {
+                                // อัปเดตสถานะใน Firebase เป็นเสร็จแล้ว
+                                const updateRef = ref(db, 'tasks/' + taskId);
+                                update(updateRef, { isDone: true });
+                            }
+                        }
+                    });
+                });
+            }
+        });
+
+        // ฟังก์ชันช่วยแปลงรูปแบบวันที่ให้สวยงาม (YYYY-MM-DD เป็น วัน/เดือน/ปี)
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const parts = dateString.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    </script>
+</body>
+</html>
